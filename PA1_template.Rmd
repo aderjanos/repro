@@ -1,0 +1,151 @@
+---
+title: "CourseraCourse"
+author: "Marton Toth"
+date: '2016 november 5 '
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(grid)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Code for reading in the dataset and/or processing the data
+Removing NAs in addition to
+
+```{r}
+data<-read.csv("activity.csv")
+data<-data[complete.cases(data),]
+summary(data)
+head(data)
+```
+
+2. Histogram of the total number of steps taken each day
+
+```{r}
+sumStepsByDate<-aggregate(steps~date, data=data, FUN = sum)
+hist(sumStepsByDate$steps, breaks=10, main="Histogram of number of steps taken in a day", xlab="Total number of steps taken in a day")
+```
+
+3. Mean and median number of steps taken each day
+```{r}
+mean(sumStepsByDate$steps)
+median(sumStepsByDate$steps)
+```
+4. Time series plot of the average number of steps taken
+```{r}
+avgStepsByDate<-aggregate(steps~date, data=data, FUN = sum)
+barplot(avgStepsByDate$steps, names = avgStepsByDate$date,
+  xlab = "Date", ylab = "Average number of steps",
+  main = "Average number of steps taken")
+```
+
+5. The 5-minute interval that, on average, contains the maximum number of steps
+The calculation of means for each interval:
+```{r}
+splitByInterval<-with(data,split(steps,interval))
+meanByInterval<-lapply(splitByInterval, mean)
+meanByInterval<-unlist(meanByInterval)
+```
+The interval containing the maximum value:
+```{r}
+which(meanByInterval==max(meanByInterval))
+```
+The time of day this interval begins is 13.55
+```{r}
+835%/%60
+835 %% 60
+```
+The mean value of steps taken in this interval:
+```{r}
+max(meanByInterval)
+```
+
+6. Code to describe and show a strategy for imputing missing data
+Replacing NA values with mean values for corresponding intervall
+```{r}
+data<-read.csv("activity.csv")
+    X=data[,1]
+    Y<-rep(meanByInterval,length.out=17568)
+    X<-ifelse(!is.na(X),X,Y)
+    data[,1]=X
+  
+```
+7. Histogram of the total number of steps taken each day after missing values are imputed
+
+Since w 
+```{r}
+sumStepsByDate<-aggregate(steps~date, data=data, FUN = sum)
+hist(sumStepsByDate$steps, breaks=10, main="Histogram of number of steps taken in a day", xlab="Total number of steps taken in a day")
+```
+
+8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+```{r}
+
+averageInterval <- function(data ){
+    splitByInterval<-with(data,split(steps,interval))
+    meanByInterval<-lapply(splitByInterval, mean) 
+    meanByInterval<-unlist(meanByInterval)
+    return(meanByInterval)
+}
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+data$date<-as.POSIXlt(data$date,format="%Y-%m-%d")
+
+weekendData<-subset(data, weekdays(as.Date(data$date)) %in% c("Saturday","Sunday"))
+weekdayData<-subset(data, !weekdays(as.Date(data$date)) %in% c("Saturday","Sunday"))
+
+weekendData<-averageInterval(weekendData)
+weekdayData<-averageInterval(weekdayData)
+
+weekendFrame<-data.frame(keyName=names(weekendData), value=weekendData, row.names=NULL)
+weekdayFrame<-data.frame(keyName=names(weekdayData), value=weekdayData, row.names=NULL)
+
+p1 <- ggplot(weekendFrame, aes(x=keyName, y=value, group=1)) +
+    geom_line(colour="blue", lwd=1) +
+    ggtitle("Average Number of Steps Taken on Weekends") +
+    labs(x="Intervals", y="Number of steps")
+
+p2 <- ggplot(weekdayFrame, aes(x=keyName, y=value, group=1)) +
+    geom_line(colour="red",lwd=1) +
+    ggtitle("Average Number of Steps Taken on Weekdays") +
+    labs(x="Intervals", y="Number of steps")
+
+multiplot(p1,p2)
+```
